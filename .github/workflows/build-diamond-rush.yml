@@ -168,8 +168,7 @@ jobs:
 
       - name: Find APK
         working-directory: j2me-loader
-        run: |
-          find app/build/outputs/apk -type f -name '*.apk' -print
+        run: find app/build/outputs/apk -type f -name '*.apk' -print
 
       - name: Upload APK
         uses: actions/upload-artifact@v7
