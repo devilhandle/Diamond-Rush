@@ -20,6 +20,9 @@ if old in s:
     s = s.replace(old, new, 1)
 
 # Remove any old/lower UP target and keep the bottom visible arrow as DOWN.
+old2 = '''                if (hit(px, ny, 0.81f, 0.13f)) return Canvas.KEY_DOWN;'''
+# handled by the explicit replacements below
+
 old2 = '''                if (hit(px, ny, 0.48f, 0.81f, 0.13f, 0.13f)) return Canvas.KEY_DOWN;\n\n                // The visible UP button is lower than the old touch target.\n                // Move the touch center clearly downward onto the arrow itself.\n                if (hit(px, ny, 0.48f, 0.76f, 0.12f, 0.085f)) return Canvas.KEY_UP;'''
 new2 = '''                // The bottom visible arrow is DOWN.\n                if (hit(px, ny, 0.48f, 0.81f, 0.13f, 0.13f)) return Canvas.KEY_DOWN;'''
 if old2 in s:
@@ -30,13 +33,20 @@ new3 = 'if (hit(px, ny, 0.48f, 0.81f, 0.13f, 0.13f)) return Canvas.KEY_DOWN;'
 if old3 in s:
     s = s.replace(old3, new3, 1)
 
-# The visible * button is on the far right of the right black panel.
-# Move its touch target onto the actual graphic and enlarge it slightly.
+# Match the visible right-side buttons in the supplied layout.
+# 5 is the upper button; * is the lower button.
 old4 = 'if (hit(px, ny, 0.46f, 0.80f, 0.14f, 0.14f)) return Canvas.KEY_STAR;'
-new4 = 'if (hit(px, ny, 0.72f, 0.80f, 0.18f, 0.16f)) return Canvas.KEY_STAR;'
-if old4 not in s:
-    raise SystemExit('visible * mapping not found')
-s = s.replace(old4, new4, 1)
+if old4 in s:
+    s = s.replace(old4, 'if (hit(px, ny, 0.66f, 0.70f, 0.17f, 0.14f)) return Canvas.KEY_NUM5;\n                if (hit(px, ny, 0.72f, 0.90f, 0.18f, 0.13f)) return Canvas.KEY_STAR;', 1)
+else:
+    old5 = 'if (hit(px, ny, 0.41f, 0.63f, 0.14f, 0.14f)) return Canvas.KEY_NUM5;'
+    if old5 not in s:
+        raise SystemExit('5 mapping not found')
+    s = s.replace(old5, 'if (hit(px, ny, 0.66f, 0.70f, 0.17f, 0.14f)) return Canvas.KEY_NUM5;', 1)
+    old6 = 'if (hit(px, ny, 0.72f, 0.80f, 0.18f, 0.16f)) return Canvas.KEY_STAR;'
+    if old6 not in s:
+        raise SystemExit('* mapping not found')
+    s = s.replace(old6, 'if (hit(px, ny, 0.72f, 0.90f, 0.18f, 0.13f)) return Canvas.KEY_STAR;', 1)
 
 p.write_text(s)
 PY
