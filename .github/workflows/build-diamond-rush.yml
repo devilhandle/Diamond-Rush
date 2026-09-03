@@ -241,8 +241,15 @@ jobs:
 
     leftSideArt = new ImageView(this);
     rightSideArt = new ImageView(this);
-    leftSideArt.setImageBitmap(BitmapFactory.decodeStream(getAssets().open("side_left.png")));
-    rightSideArt.setImageBitmap(BitmapFactory.decodeStream(getAssets().open("side_right.png")));
+
+    try (java.io.InputStream left = getAssets().open("side_left.png");
+         java.io.InputStream right = getAssets().open("side_right.png")) {
+        leftSideArt.setImageBitmap(BitmapFactory.decodeStream(left));
+        rightSideArt.setImageBitmap(BitmapFactory.decodeStream(right));
+    } catch (java.io.IOException e) {
+        throw new RuntimeException("Side PNG yüklenemedi", e);
+    }
+
     leftSideArt.setScaleType(ImageView.ScaleType.FIT_CENTER);
     rightSideArt.setScaleType(ImageView.ScaleType.FIT_CENTER);
     leftSideArt.setClickable(false);
@@ -287,7 +294,6 @@ private void positionSideArt() {
     }
 
     int sideWidth = Math.max(0, (rootWidth - gameWidth) / 2);
-    int y = 0;
 
     ViewGroup.LayoutParams leftLp = leftSideArt.getLayoutParams();
     if (!(leftLp instanceof FrameLayout.LayoutParams)) {
@@ -297,7 +303,7 @@ private void positionSideArt() {
     left.width = sideWidth;
     left.height = rootHeight;
     left.leftMargin = 0;
-    left.topMargin = y;
+    left.topMargin = 0;
     left.gravity = Gravity.START | Gravity.TOP;
     leftSideArt.setLayoutParams(left);
 
@@ -309,7 +315,7 @@ private void positionSideArt() {
     right.width = sideWidth;
     right.height = rootHeight;
     right.leftMargin = rootWidth - sideWidth;
-    right.topMargin = y;
+    right.topMargin = 0;
     right.gravity = Gravity.START | Gravity.TOP;
     rightSideArt.setLayoutParams(right);
 }
