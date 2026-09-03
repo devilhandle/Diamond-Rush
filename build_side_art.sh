@@ -77,16 +77,23 @@ method = '''private void setupSideArt() {
 
             if (x < gameLeft) {
                 float px = x / (float) Math.max(1, gameLeft);
-                if (near(px, ny, 0.34f, 0.41f, 0.085f, 0.105f)) return Canvas.KEY_SOFT_LEFT;
-                if (near(px, ny, 0.48f, 0.51f, 0.085f, 0.105f)) return Canvas.KEY_SOFT_RIGHT;
-                if (near(px, ny, 0.35f, 0.655f, 0.105f, 0.12f)) return Canvas.KEY_LEFT;
-                if (near(px, ny, 0.61f, 0.655f, 0.105f, 0.12f)) return Canvas.KEY_RIGHT;
-                if (near(px, ny, 0.48f, 0.81f, 0.105f, 0.12f)) return Canvas.KEY_DOWN;
-                if (near(px, ny, 0.48f, 0.515f, 0.105f, 0.12f)) return Canvas.KEY_UP;
+
+                // The two top icons are kept separate from the D-pad. The pause
+                // artwork sends the emulator's clear/back key (Esc-equivalent),
+                // while the home/menu artwork remains the right soft key.
+                if (near(px, ny, 0.34f, 0.41f, 0.10f, 0.09f)) return Canvas.KEY_CLEAR;
+                if (near(px, ny, 0.48f, 0.51f, 0.085f, 0.08f)) return Canvas.KEY_SOFT_RIGHT;
+
+                // D-pad hitboxes follow the visible artwork. UP is deliberately
+                // lower than the old hitbox so the touch target sits on the arrow.
+                if (near(px, ny, 0.35f, 0.655f, 0.12f, 0.12f)) return Canvas.KEY_LEFT;
+                if (near(px, ny, 0.61f, 0.655f, 0.12f, 0.12f)) return Canvas.KEY_RIGHT;
+                if (near(px, ny, 0.48f, 0.81f, 0.12f, 0.12f)) return Canvas.KEY_DOWN;
+                if (near(px, ny, 0.48f, 0.595f, 0.12f, 0.105f)) return Canvas.KEY_UP;
             } else if (x > gameRight) {
                 float px = (x - gameRight) / (float) Math.max(1, w - gameRight);
-                if (near(px, ny, 0.41f, 0.63f, 0.13f, 0.14f)) return Canvas.KEY_NUM5;
-                if (near(px, ny, 0.46f, 0.80f, 0.13f, 0.14f)) return Canvas.KEY_STAR;
+                if (near(px, ny, 0.41f, 0.63f, 0.14f, 0.14f)) return Canvas.KEY_NUM5;
+                if (near(px, ny, 0.46f, 0.80f, 0.14f, 0.14f)) return Canvas.KEY_STAR;
             }
             return 0;
         }
