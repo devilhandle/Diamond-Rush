@@ -45,7 +45,8 @@ method_marker = 'public void lockNightMode() {\n'
 method = '''private void setupSideArt() {
     View root = binding.getRoot();
 
-    // The complete emulator window must remain black outside the portrait game area.
+    // Keep the window black, but the overlay container itself must be transparent
+    // so it cannot cover the actual game view.
     root.setBackgroundColor(Color.BLACK);
     binding.displayableContainer.setBackgroundColor(Color.BLACK);
     binding.overlayView.setBackgroundColor(Color.TRANSPARENT);
@@ -57,7 +58,7 @@ method = '''private void setupSideArt() {
     }
 
     sideArtContainer = new FrameLayout(this);
-    sideArtContainer.setBackgroundColor(Color.BLACK);
+    sideArtContainer.setBackgroundColor(Color.TRANSPARENT);
     sideArtContainer.setClickable(false);
     sideArtContainer.setFocusable(false);
 
