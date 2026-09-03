@@ -124,12 +124,12 @@ if 'private void setupSideArt()' not in s:
         raise SystemExit('MicroActivity method marker not found')
     s = s.replace(method_marker, method + method_marker, 1)
 
-process_marker = 'if (next != null) {\n\tbinding.displayableContainer.addView(next.getDisplayableView());\n}\n'
-process_replacement = process_marker + '\npositionSideArt();\nbinding.getRoot().post(MicroActivity.this::positionSideArt);\n'
+line_marker = 'binding.displayableContainer.addView(next.getDisplayableView());\n'
+line_replacement = line_marker + 'positionSideArt();\n\tbinding.getRoot().post(MicroActivity.this::positionSideArt);\n'
 if 'MicroActivity.this::positionSideArt' not in s:
-    if process_marker not in s:
-        raise SystemExit('MicroActivity SetCurrentEvent marker not found')
-    s = s.replace(process_marker, process_replacement, 1)
+    if line_marker not in s:
+        raise SystemExit('MicroActivity displayable add marker not found')
+    s = s.replace(line_marker, line_replacement, 1)
 
 p.write_text(s)
 PY
