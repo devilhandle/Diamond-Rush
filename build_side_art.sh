@@ -4,7 +4,7 @@ cd "$(dirname "$0")"
 
 # Start from the known-good side-art implementation, then correct the
 # touch targets to match the actual visible buttons in the supplied layout.
-curl -fsSL "https://raw.githubusercontent.com/devilhandle/Diamond-Rush/2347ff126ca4dc067dd600f165fb3c2ffb48230/build_side_art.sh" -o .base_build_side_art.sh
+curl -fsSL "https://raw.githubusercontent.com/devilhandle/Diamond-Rush/2347ff1267ca4dc067dd600f165fb3c2ffb48230/build_side_art.sh" -o .base_build_side_art.sh
 bash .base_build_side_art.sh
 rm -f .base_build_side_art.sh
 
@@ -30,8 +30,8 @@ new3 = 'if (hit(px, ny, 0.48f, 0.81f, 0.13f, 0.13f)) return Canvas.KEY_DOWN;'
 if old3 in s:
     s = s.replace(old3, new3, 1)
 
-# The visible * button is far to the right inside the right black panel.
-# The old target was too far left, so a tap on the actual * graphic missed it.
+# The visible * button is on the far right of the right black panel.
+# Move its touch target onto the actual graphic and enlarge it slightly.
 old4 = 'if (hit(px, ny, 0.46f, 0.80f, 0.14f, 0.14f)) return Canvas.KEY_STAR;'
 new4 = 'if (hit(px, ny, 0.72f, 0.80f, 0.18f, 0.16f)) return Canvas.KEY_STAR;'
 if old4 not in s:
