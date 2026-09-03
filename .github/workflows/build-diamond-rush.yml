@@ -14,20 +14,37 @@ jobs:
       - name: Checkout Diamond Rush repository
         uses: actions/checkout@v4
 
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
       - name: Download J2ME Loader source
-        run: git clone --depth 1 https://github.com/nikita36078/J2ME-Loader.git j2me-loader
+        run: |
+          git clone --depth 1 https://github.com/nikita36078/J2ME-Loader.git j2me-loader
 
       - name: Download the bundled Diamond Rush JAR
         run: |
           mkdir -p j2me-loader/app/src/main/assets
-          curl -fL --retry 3 \
+          curl -fL --retry 5 --retry-all-errors \
             'https://raw.githubusercontent.com/devilhandle/Diamond-Rush/main/diamondrus_lybcoaz8%20%281%29.jar' \
             -o j2me-loader/app/src/main/assets/diamond_rush.jar
           test -s j2me-loader/app/src/main/assets/diamond_rush.jar
+          unzip -t j2me-loader/app/src/main/assets/diamond_rush.jar >/dev/null
 
       - name: Set app name
         working-directory: j2me-loader
-        run: sed -i "s/rootProject.name = .*/rootProject.name = 'Diamond Rush'/" settings.gradle
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('settings.gradle')
+          s = p.read_text()
+          import re
+          s = re.sub(r"rootProject\.name\s*=.*", "rootProject.name = 'Diamond Rush'", s, count=1)
+          p.write_text(s)
+          PY
 
       - name: Add bundled-game launcher
         working-directory: j2me-loader
@@ -37,6 +54,7 @@ jobs:
           package ru.playsoftware.j2meloader;
 
           import android.app.Activity;
+          import android.content.pm.ActivityInfo;
           import android.widget.Toast;
 
           import com.android.dx.command.dexer.Main;
@@ -59,6 +77,9 @@ jobs:
 
               public static void launch(Activity activity) {
                   try {
+                      // Force landscape for the whole game session.
+                      activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+
                       File appDir = new File(Config.getAppDir(), APP_DIR_NAME);
                       if (!appDir.exists() && !appDir.mkdirs()) {
                           throw new Exception("Cannot create game directory");
@@ -94,24 +115,27 @@ jobs:
                           if (!dex.isFile()) {
                               throw new Exception("J2ME conversion did not create converted.dex");
                           }
+                      }
 
-                          if (!configDir.exists() && !configDir.mkdirs()) {
-                              throw new Exception("Cannot create profile directory");
-                          }
-                          ProfileModel profile = new ProfileModel(configDir);
-                          profile.screenWidth = 240;
-                          profile.screenHeight = 320;
-                          profile.orientation = 3;
-                          profile.screenScaleType = 1;
-                          profile.screenGravity = 2;
-                          profile.screenScaleToFit = true;
-                          profile.screenKeepAspectRatio = true;
-                          profile.forceFullscreen = true;
-                          profile.showKeyboard = true;
-                          profile.touchInput = true;
-                          if (!ProfilesManager.saveConfig(profile)) {
-                              throw new Exception("Cannot save game profile");
-                          }
+                      if (!configDir.exists() && !configDir.mkdirs()) {
+                          throw new Exception("Cannot create profile directory");
+                      }
+
+                      ProfileModel profile = new ProfileModel(configDir);
+                      // Diamond Rush is a portrait MIDlet (240x320), but we display it
+                      // rotated in a landscape activity and keep its aspect ratio.
+                      profile.screenWidth = 240;
+                      profile.screenHeight = 320;
+                      profile.orientation = 3;
+                      profile.screenScaleType = 1;
+                      profile.screenGravity = 2;
+                      profile.screenScaleToFit = true;
+                      profile.screenKeepAspectRatio = true;
+                      profile.forceFullscreen = true;
+                      profile.showKeyboard = true;
+                      profile.touchInput = true;
+                      if (!ProfilesManager.saveConfig(profile)) {
+                          throw new Exception("Cannot save game profile");
                       }
 
                       String name = "Diamond Rush";
@@ -164,16 +188,18 @@ jobs:
         working-directory: j2me-loader
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon assembleOpenDebug
+          ./gradlew --no-daemon :app:assembleOpenDebug --stacktrace
 
-      - name: Find APK
+      - name: Verify APK
         working-directory: j2me-loader
-        run: find app/build/outputs/apk -type f -name '*.apk' -print
+        run: |
+          find app/build/outputs/apk -type f -name '*.apk' -print
+          test -n "$(find app/build/outputs/apk -type f -name '*.apk' -print -quit)"
 
       - name: Upload APK
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: Diamond-Rush-APK
           path: j2me-loader/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
-          archive: false
+          retention-days: 7
