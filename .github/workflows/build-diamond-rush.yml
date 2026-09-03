@@ -15,7 +15,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -32,6 +32,29 @@ jobs:
             -o j2me-loader/app/src/main/assets/diamond_rush.jar
           test -s j2me-loader/app/src/main/assets/diamond_rush.jar
           unzip -t j2me-loader/app/src/main/assets/diamond_rush.jar >/dev/null
+
+      - name: Prepare Android signing for CI
+        working-directory: j2me-loader
+        run: |
+          set -e
+          keytool -genkeypair \
+            -keystore ci-debug.keystore \
+            -storepass android \
+            -keypass android \
+            -alias androiddebugkey \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname 'CN=Android Debug,O=Android,C=US' \
+            -noprompt
+          cat > keystore.properties <<EOF
+          keyAlias=androiddebugkey
+          keyPassword=android
+          storeFile=$GITHUB_WORKSPACE/j2me-loader/ci-debug.keystore
+          storePassword=android
+          EOF
+          test -s keystore.properties
+          test -s ci-debug.keystore
 
       - name: Set app name
         working-directory: j2me-loader
