@@ -45,12 +45,19 @@ method_marker = 'public void lockNightMode() {\n'
 method = '''private void setupSideArt() {
     View root = binding.getRoot();
 
-    // Black is only the background around the portrait game.
+    // Everything outside the 240x320 portrait game must be pure black.
     root.setBackgroundColor(Color.BLACK);
     binding.displayableContainer.setBackgroundColor(Color.BLACK);
     binding.overlayView.setBackgroundColor(Color.TRANSPARENT);
+    binding.overlayView.setAlpha(0.0f); // hide J2ME Loader's drawn keyboard, keep its touch handling
     getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
     getWindow().getDecorView().setBackgroundColor(Color.BLACK);
+
+    // The actual game Surface/View can have its own default gray background.
+    // Force every current displayable child to black as well.
+    for (int i = 0; i < binding.displayableContainer.getChildCount(); i++) {
+        binding.displayableContainer.getChildAt(i).setBackgroundColor(Color.BLACK);
+    }
 
     if (!(root instanceof ViewGroup)) {
         return;
@@ -76,6 +83,8 @@ method = '''private void setupSideArt() {
     rightSideArt.setScaleType(ImageView.ScaleType.FIT_CENTER);
     leftSideArt.setBackgroundColor(Color.TRANSPARENT);
     rightSideArt.setBackgroundColor(Color.TRANSPARENT);
+    // Do not consume touches: the transparent J2ME Loader keyboard overlay below
+    // receives the same touches and converts them to real MIDlet key events.
     leftSideArt.setClickable(false);
     rightSideArt.setClickable(false);
     leftSideArt.setFocusable(false);
@@ -104,9 +113,9 @@ private void positionSideArt() {
         return;
     }
 
-    // Diamond Rush is 240x320. In landscape, its displayed portrait area is
-    // exactly 3/4 of the available height. Do not use the child View bounds:
-    // J2ME Loader's displayable container itself can be full-width.
+    // Diamond Rush is 240x320. In landscape, the portrait game area is 3/4
+    // of the available height. Center that area and use the remaining pixels
+    // exclusively for the two supplied PNG control panels.
     int gameWidth = Math.min(rootWidth, Math.round(rootHeight * 0.75f));
     int gameLeft = (rootWidth - gameWidth) / 2;
     int gameRight = gameLeft + gameWidth;
@@ -137,7 +146,7 @@ if 'private void setupSideArt()' not in s:
     s = s.replace(method_marker, method + method_marker, 1)
 
 line_marker = 'binding.displayableContainer.addView(next.getDisplayableView());\n'
-line_replacement = line_marker + '\t\tpositionSideArt();\n\t\tbinding.getRoot().post(MicroActivity.this::positionSideArt);\n'
+line_replacement = line_marker + '\t\tfor (int i = 0; i < binding.displayableContainer.getChildCount(); i++) {\n\t\t\tbinding.displayableContainer.getChildAt(i).setBackgroundColor(Color.BLACK);\n\t\t}\n\t\tpositionSideArt();\n\t\tbinding.getRoot().post(MicroActivity.this::positionSideArt);\n'
 if 'MicroActivity.this::positionSideArt' not in s:
     if line_marker not in s:
         raise SystemExit('MicroActivity displayable add marker not found')
