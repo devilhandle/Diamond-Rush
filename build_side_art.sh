@@ -59,14 +59,19 @@ if 'private void setupSideArt()' not in s:
 
             if (x < gameLeft) {
                 float px = x / (float) Math.max(1, gameLeft);
-                // Pause: direct soft-left dispatch bypasses SoftBar command consumption.
-                if (hit(px, ny, 0.34f, 0.41f, 0.10f, 0.09f)) return Canvas.KEY_SOFT_LEFT;
-                if (hit(px, ny, 0.48f, 0.51f, 0.085f, 0.08f)) return Canvas.KEY_SOFT_RIGHT;
-                if (hit(px, ny, 0.35f, 0.655f, 0.12f, 0.12f)) return Canvas.KEY_LEFT;
-                if (hit(px, ny, 0.61f, 0.655f, 0.12f, 0.12f)) return Canvas.KEY_RIGHT;
-                if (hit(px, ny, 0.48f, 0.81f, 0.12f, 0.12f)) return Canvas.KEY_DOWN;
-                // UP target moved down onto the visible arrow instead of above it.
-                if (hit(px, ny, 0.48f, 0.655f, 0.105f, 0.085f)) return Canvas.KEY_UP;
+                // The artwork is FIT_CENTERed in this exact left panel.  Use a wider
+                // horizontal target centered on the visible pause icon so touching
+                // anywhere on the icon (not its right edge) activates pause.
+                if (hit(px, ny, 0.285f, 0.41f, 0.145f, 0.115f)) return Canvas.KEY_SOFT_LEFT;
+                if (hit(px, ny, 0.48f, 0.51f, 0.095f, 0.09f)) return Canvas.KEY_SOFT_RIGHT;
+
+                if (hit(px, ny, 0.35f, 0.655f, 0.13f, 0.13f)) return Canvas.KEY_LEFT;
+                if (hit(px, ny, 0.61f, 0.655f, 0.13f, 0.13f)) return Canvas.KEY_RIGHT;
+                if (hit(px, ny, 0.48f, 0.81f, 0.13f, 0.13f)) return Canvas.KEY_DOWN;
+
+                // UP is deliberately centered lower and given a tall target so the
+                // complete visible UP arrow is inside the touch area.
+                if (hit(px, ny, 0.48f, 0.70f, 0.12f, 0.15f)) return Canvas.KEY_UP;
             } else if (x > gameRight) {
                 float px = (x - gameRight) / (float) Math.max(1, w - gameRight);
                 if (hit(px, ny, 0.41f, 0.63f, 0.14f, 0.14f)) return Canvas.KEY_NUM5;
