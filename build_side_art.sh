@@ -6,139 +6,110 @@ from pathlib import Path
 p = Path('app/src/main/java/javax/microedition/shell/MicroActivity.java')
 s = p.read_text()
 
-imports = '''import android.graphics.BitmapFactory;
-import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
-import android.view.Gravity;
-import android.view.MotionEvent;
-import android.view.ViewTreeObserver;
-import android.widget.FrameLayout;
-import android.widget.ImageView;
-'''
-marker = 'import android.content.Intent;\n'
-if 'import android.view.MotionEvent;' not in s:
-    if marker not in s:
-        raise SystemExit('MicroActivity import marker not found')
-    old = '''import android.graphics.BitmapFactory;\nimport android.graphics.Color;\nimport android.graphics.drawable.ColorDrawable;\nimport android.view.Gravity;\nimport android.view.ViewTreeObserver;\nimport android.widget.FrameLayout;\nimport android.widget.ImageView;\n'''
-    if old in s:
-        s = s.replace(old, imports, 1)
-    else:
-        s = s.replace(marker, marker + imports, 1)
+# Imports needed by the custom side-control overlay.
+for imp in [
+    'import android.graphics.BitmapFactory;\n',
+    'import android.graphics.Color;\n',
+    'import android.graphics.drawable.ColorDrawable;\n',
+    'import android.view.Gravity;\n',
+    'import android.view.MotionEvent;\n',
+    'import android.view.ViewTreeObserver;\n',
+    'import android.widget.FrameLayout;\n',
+    'import android.widget.ImageView;\n']:
+    if imp not in s:
+        s = s.replace('import android.content.Intent;\n', 'import android.content.Intent;\n' + imp, 1)
 
-field_marker = 'private String appPath;\n'
-fields = '''private ImageView leftSideArt;
-private ImageView rightSideArt;
-private FrameLayout sideArtContainer;
-private ViewTreeObserver.OnGlobalLayoutListener sideArtLayoutListener;
-'''
 if 'private FrameLayout sideArtContainer;' not in s:
-    if field_marker not in s:
-        raise SystemExit('MicroActivity field marker not found')
-    s = s.replace(field_marker, field_marker + fields, 1)
+    marker = 'private String appPath;\n'
+    if marker not in s: raise SystemExit('field marker not found')
+    s = s.replace(marker, marker + '''private ImageView leftSideArt;\nprivate ImageView rightSideArt;\nprivate FrameLayout sideArtContainer;\nprivate ViewTreeObserver.OnGlobalLayoutListener sideArtLayoutListener;\n''', 1)
 
-setup_marker = 'setContentView(view);\n'
 if 'setupSideArt();' not in s:
-    if setup_marker not in s:
-        raise SystemExit('MicroActivity setContentView marker not found')
-    s = s.replace(setup_marker, setup_marker + '\nsetupSideArt();\n', 1)
+    marker = 'setContentView(view);\n'
+    if marker not in s: raise SystemExit('setContentView marker not found')
+    s = s.replace(marker, marker + '\nsetupSideArt();\n', 1)
 
-method_marker = 'public void lockNightMode() {\n'
-method = '''private void setupSideArt() {
+if 'private void setupSideArt()' not in s:
+    marker = 'public void lockNightMode() {\n'
+    if marker not in s: raise SystemExit('method marker not found')
+    method = r'''private void setupSideArt() {
     View root = binding.getRoot();
-
     root.setBackgroundColor(Color.BLACK);
     binding.displayableContainer.setBackgroundColor(Color.BLACK);
     binding.overlayView.setBackgroundColor(Color.TRANSPARENT);
     binding.overlayView.setAlpha(0.0f);
     getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
     getWindow().getDecorView().setBackgroundColor(Color.BLACK);
-
-    if (!(root instanceof ViewGroup)) {
-        return;
-    }
+    if (!(root instanceof ViewGroup)) return;
 
     sideArtContainer = new FrameLayout(this) {
         private final int[] pressedKeys = new int[20];
 
-        private boolean near(float x, float y, float cx, float cy, float rx, float ry) {
-            float dx = (x - cx) / rx;
-            float dy = (y - cy) / ry;
+        private boolean hit(float x, float y, float cx, float cy, float rx, float ry) {
+            float dx = (x - cx) / rx, dy = (y - cy) / ry;
             return dx * dx + dy * dy <= 1.0f;
         }
 
-        private int keyForSideTouch(float x, float y) {
-            int w = getWidth();
-            int h = getHeight();
+        private int keyFor(float x, float y) {
+            int w = getWidth(), h = getHeight();
             if (w <= 0 || h <= 0) return 0;
             int gameWidth = Math.min(w, Math.round(h * 0.75f));
-            int gameLeft = (w - gameWidth) / 2;
-            int gameRight = gameLeft + gameWidth;
+            int gameLeft = (w - gameWidth) / 2, gameRight = gameLeft + gameWidth;
             float ny = y / (float) h;
 
             if (x < gameLeft) {
                 float px = x / (float) Math.max(1, gameLeft);
-
-                // The two top icons are kept separate from the D-pad. The pause
-                // artwork sends the emulator's clear/back key (Esc-equivalent),
-                // while the home/menu artwork remains the right soft key.
-                if (near(px, ny, 0.34f, 0.41f, 0.10f, 0.09f)) return Canvas.KEY_CLEAR;
-                if (near(px, ny, 0.48f, 0.51f, 0.085f, 0.08f)) return Canvas.KEY_SOFT_RIGHT;
-
-                // D-pad hitboxes follow the visible artwork. UP is deliberately
-                // lower than the old hitbox so the touch target sits on the arrow.
-                if (near(px, ny, 0.35f, 0.655f, 0.12f, 0.12f)) return Canvas.KEY_LEFT;
-                if (near(px, ny, 0.61f, 0.655f, 0.12f, 0.12f)) return Canvas.KEY_RIGHT;
-                if (near(px, ny, 0.48f, 0.81f, 0.12f, 0.12f)) return Canvas.KEY_DOWN;
-                if (near(px, ny, 0.48f, 0.595f, 0.12f, 0.105f)) return Canvas.KEY_UP;
+                // Pause: direct soft-left dispatch bypasses SoftBar command consumption.
+                if (hit(px, ny, 0.34f, 0.41f, 0.10f, 0.09f)) return Canvas.KEY_SOFT_LEFT;
+                if (hit(px, ny, 0.48f, 0.51f, 0.085f, 0.08f)) return Canvas.KEY_SOFT_RIGHT;
+                if (hit(px, ny, 0.35f, 0.655f, 0.12f, 0.12f)) return Canvas.KEY_LEFT;
+                if (hit(px, ny, 0.61f, 0.655f, 0.12f, 0.12f)) return Canvas.KEY_RIGHT;
+                if (hit(px, ny, 0.48f, 0.81f, 0.12f, 0.12f)) return Canvas.KEY_DOWN;
+                // UP target moved down onto the visible arrow instead of above it.
+                if (hit(px, ny, 0.48f, 0.655f, 0.105f, 0.085f)) return Canvas.KEY_UP;
             } else if (x > gameRight) {
                 float px = (x - gameRight) / (float) Math.max(1, w - gameRight);
-                if (near(px, ny, 0.41f, 0.63f, 0.14f, 0.14f)) return Canvas.KEY_NUM5;
-                if (near(px, ny, 0.46f, 0.80f, 0.14f, 0.14f)) return Canvas.KEY_STAR;
+                if (hit(px, ny, 0.41f, 0.63f, 0.14f, 0.14f)) return Canvas.KEY_NUM5;
+                if (hit(px, ny, 0.46f, 0.80f, 0.14f, 0.14f)) return Canvas.KEY_STAR;
             }
             return 0;
         }
 
-        private void sendPress(int id, int key) {
+        private void press(int id, int key) {
             if (id < 0 || id >= pressedKeys.length || key == 0) return;
             Displayable d = MicroActivity.this.getCurrent();
             if (d instanceof Canvas) {
                 pressedKeys[id] = key;
-                ((Canvas) d).postKeyPressed(key);
+                Canvas c = (Canvas)d;
+                // Soft keys are sent directly to the MIDP Canvas so SoftBar cannot consume them.
+                if (key == Canvas.KEY_SOFT_LEFT || key == Canvas.KEY_SOFT_RIGHT) c.doKeyPressed(key);
+                else c.postKeyPressed(key);
             }
         }
 
-        private void sendRelease(int id) {
+        private void release(int id) {
             if (id < 0 || id >= pressedKeys.length) return;
             int key = pressedKeys[id];
-            if (key != 0) {
-                Displayable d = MicroActivity.this.getCurrent();
-                if (d instanceof Canvas) ((Canvas) d).postKeyReleased(key);
-                pressedKeys[id] = 0;
+            if (key == 0) return;
+            Displayable d = MicroActivity.this.getCurrent();
+            if (d instanceof Canvas) {
+                Canvas c = (Canvas)d;
+                if (key == Canvas.KEY_SOFT_LEFT || key == Canvas.KEY_SOFT_RIGHT) c.doKeyReleased(key);
+                else c.postKeyReleased(key);
             }
+            pressedKeys[id] = 0;
         }
 
-        @Override
-        public boolean dispatchTouchEvent(MotionEvent event) {
-            int action = event.getActionMasked();
-            int index = event.getActionIndex();
-            int id = event.getPointerId(index);
-
-            if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN) {
-                int key = keyForSideTouch(event.getX(index), event.getY(index));
-                if (key != 0) {
-                    sendPress(id, key);
-                    return true;
-                }
+        @Override public boolean dispatchTouchEvent(MotionEvent e) {
+            int a = e.getActionMasked(), i = e.getActionIndex(), id = e.getPointerId(i);
+            if (a == MotionEvent.ACTION_DOWN || a == MotionEvent.ACTION_POINTER_DOWN) {
+                int key = keyFor(e.getX(i), e.getY(i));
+                if (key != 0) { press(id, key); return true; }
                 return false;
             }
-
-            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_POINTER_UP) {
-                sendRelease(id);
-                return true;
-            }
-
-            if (action == MotionEvent.ACTION_CANCEL) {
-                for (int i = 0; i < pressedKeys.length; i++) sendRelease(i);
+            if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_POINTER_UP) { release(id); return true; }
+            if (a == MotionEvent.ACTION_CANCEL) {
+                for (int n = 0; n < pressedKeys.length; n++) release(n);
                 return true;
             }
             return false;
@@ -149,90 +120,51 @@ method = '''private void setupSideArt() {
     sideArtContainer.setClickable(false);
     sideArtContainer.setFocusable(false);
     sideArtContainer.setWillNotDraw(true);
-
     leftSideArt = new ImageView(this);
     rightSideArt = new ImageView(this);
-
     try (java.io.InputStream left = getAssets().open("side_left.png");
          java.io.InputStream right = getAssets().open("side_right.png")) {
         leftSideArt.setImageBitmap(BitmapFactory.decodeStream(left));
         rightSideArt.setImageBitmap(BitmapFactory.decodeStream(right));
-    } catch (java.io.IOException e) {
-        throw new RuntimeException("Side PNG load failed", e);
-    }
-
+    } catch (java.io.IOException e) { throw new RuntimeException("Side PNG load failed", e); }
     leftSideArt.setScaleType(ImageView.ScaleType.FIT_CENTER);
     rightSideArt.setScaleType(ImageView.ScaleType.FIT_CENTER);
     leftSideArt.setBackgroundColor(Color.BLACK);
     rightSideArt.setBackgroundColor(Color.BLACK);
-    leftSideArt.setClickable(false);
-    rightSideArt.setClickable(false);
-    leftSideArt.setFocusable(false);
-    rightSideArt.setFocusable(false);
-
+    leftSideArt.setClickable(false); rightSideArt.setClickable(false);
+    leftSideArt.setFocusable(false); rightSideArt.setFocusable(false);
     sideArtContainer.addView(leftSideArt, new FrameLayout.LayoutParams(1, 1));
     sideArtContainer.addView(rightSideArt, new FrameLayout.LayoutParams(1, 1));
-    ((ViewGroup) root).addView(sideArtContainer, new ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT));
-
+    ((ViewGroup)root).addView(sideArtContainer, new ViewGroup.LayoutParams(
+        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     sideArtLayoutListener = this::positionSideArt;
     root.getViewTreeObserver().addOnGlobalLayoutListener(sideArtLayoutListener);
     root.post(this::positionSideArt);
-
     binding.overlayView.bringToFront();
 }
 
 private void positionSideArt() {
-    if (sideArtContainer == null || leftSideArt == null || rightSideArt == null || binding == null) {
-        return;
-    }
-
+    if (sideArtContainer == null || leftSideArt == null || rightSideArt == null || binding == null) return;
     View root = binding.getRoot();
-    int rootWidth = root.getWidth();
-    int rootHeight = root.getHeight();
-    if (rootWidth <= 0 || rootHeight <= 0) {
-        return;
-    }
-
-    int gameWidth = Math.min(rootWidth, Math.round(rootHeight * 0.75f));
-    int gameLeft = (rootWidth - gameWidth) / 2;
-    int gameRight = gameLeft + gameWidth;
-
-    FrameLayout.LayoutParams left = (FrameLayout.LayoutParams) leftSideArt.getLayoutParams();
-    left.width = Math.max(0, gameLeft);
-    left.height = rootHeight;
-    left.leftMargin = 0;
-    left.topMargin = 0;
-    left.gravity = Gravity.TOP | Gravity.START;
-    leftSideArt.setLayoutParams(left);
-
-    FrameLayout.LayoutParams right = (FrameLayout.LayoutParams) rightSideArt.getLayoutParams();
-    right.width = Math.max(0, rootWidth - gameRight);
-    right.height = rootHeight;
-    right.leftMargin = gameRight;
-    right.topMargin = 0;
-    right.gravity = Gravity.TOP | Gravity.START;
-    rightSideArt.setLayoutParams(right);
+    int rw = root.getWidth(), rh = root.getHeight();
+    if (rw <= 0 || rh <= 0) return;
+    int gameWidth = Math.min(rw, Math.round(rh * 0.75f));
+    int gameLeft = (rw - gameWidth) / 2, gameRight = gameLeft + gameWidth;
+    FrameLayout.LayoutParams l = (FrameLayout.LayoutParams)leftSideArt.getLayoutParams();
+    l.width = Math.max(0, gameLeft); l.height = rh; l.leftMargin = 0; l.topMargin = 0;
+    l.gravity = Gravity.TOP | Gravity.START; leftSideArt.setLayoutParams(l);
+    FrameLayout.LayoutParams r = (FrameLayout.LayoutParams)rightSideArt.getLayoutParams();
+    r.width = Math.max(0, rw - gameRight); r.height = rh; r.leftMargin = gameRight; r.topMargin = 0;
+    r.gravity = Gravity.TOP | Gravity.START; rightSideArt.setLayoutParams(r);
 }
 
 '''
-if 'private void setupSideArt()' not in s:
-    if method_marker not in s:
-        raise SystemExit('MicroActivity method marker not found')
-    s = s.replace(method_marker, method + method_marker, 1)
+    s = s.replace(marker, method + marker, 1)
 
-line_marker = 'binding.displayableContainer.addView(next.getDisplayableView());\n'
-line_replacement = line_marker + '''\t\tfor (int i = 0; i < binding.displayableContainer.getChildCount(); i++) {
-\t\t\tbinding.displayableContainer.getChildAt(i).setBackgroundColor(Color.BLACK);
-\t\t}
-\t\tpositionSideArt();
-\t\tbinding.getRoot().post(MicroActivity.this::positionSideArt);
-'''
+line = 'binding.displayableContainer.addView(next.getDisplayableView());\n'
 if 'MicroActivity.this::positionSideArt' not in s:
-    if line_marker not in s:
-        raise SystemExit('MicroActivity displayable add marker not found')
-    s = s.replace(line_marker, line_replacement, 1)
+    if line not in s: raise SystemExit('displayable marker not found')
+    s = s.replace(line, line + '''\t\tfor (int i = 0; i < binding.displayableContainer.getChildCount(); i++) {\n\t\t\tbinding.displayableContainer.getChildAt(i).setBackgroundColor(Color.BLACK);\n\t\t}\n\t\tpositionSideArt();\n\t\tbinding.getRoot().post(MicroActivity.this::positionSideArt);\n''', 1)
 
 p.write_text(s)
 PY
