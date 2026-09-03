@@ -63,8 +63,7 @@ method = '''private void setupSideArt() {
             return false;
         }
     };
-    // IMPORTANT: this full-screen container must be transparent. A black
-    // background here would cover the actual Diamond Rush game surface.
+    // Transparent full-screen holder: it must never paint over the game.
     sideArtContainer.setBackgroundColor(Color.TRANSPARENT);
     sideArtContainer.setClickable(false);
     sideArtContainer.setFocusable(false);
@@ -99,6 +98,11 @@ method = '''private void setupSideArt() {
     sideArtLayoutListener = this::positionSideArt;
     root.getViewTreeObserver().addOnGlobalLayoutListener(sideArtLayoutListener);
     root.post(this::positionSideArt);
+
+    // The transparent J2ME Loader overlay stays ABOVE the artwork so its
+    // VirtualKeyboard continues to receive touch events. Its graphics remain
+    // invisible because alpha is 0, while touch handling is still active.
+    binding.overlayView.bringToFront();
 }
 
 private void positionSideArt() {
@@ -132,8 +136,6 @@ private void positionSideArt() {
     right.topMargin = 0;
     right.gravity = Gravity.TOP | Gravity.START;
     rightSideArt.setLayoutParams(right);
-
-    sideArtContainer.bringToFront();
 }
 
 '''
