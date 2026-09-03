@@ -6,7 +6,6 @@ from pathlib import Path
 p = Path('app/src/main/java/javax/microedition/shell/MicroActivity.java')
 s = p.read_text()
 
-# Imports needed by the custom side-control overlay.
 for imp in [
     'import android.graphics.BitmapFactory;\n',
     'import android.graphics.Color;\n',
@@ -64,11 +63,12 @@ if 'private void setupSideArt()' not in s:
 
                 if (hit(px, ny, 0.35f, 0.655f, 0.13f, 0.13f)) return Canvas.KEY_LEFT;
                 if (hit(px, ny, 0.61f, 0.655f, 0.13f, 0.13f)) return Canvas.KEY_RIGHT;
-                if (hit(px, ny, 0.48f, 0.81f, 0.13f, 0.13f)) return Canvas.KEY_DOWN;
 
-                // The visible UP button is lower than the old touch target.
-                // Move the touch center clearly downward onto the arrow itself.
-                if (hit(px, ny, 0.48f, 0.76f, 0.12f, 0.085f)) return Canvas.KEY_UP;
+                // UP is checked BEFORE DOWN so the lower half of the visible
+                // UP artwork cannot be stolen by the neighbouring DOWN target.
+                // The target is deliberately lowered onto the visible arrow.
+                if (hit(px, ny, 0.48f, 0.82f, 0.13f, 0.105f)) return Canvas.KEY_UP;
+                if (hit(px, ny, 0.48f, 0.90f, 0.12f, 0.075f)) return Canvas.KEY_DOWN;
             } else if (x > gameRight) {
                 float px = (x - gameRight) / (float) Math.max(1, w - gameRight);
                 if (hit(px, ny, 0.41f, 0.63f, 0.14f, 0.14f)) return Canvas.KEY_NUM5;
