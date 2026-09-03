@@ -19,7 +19,6 @@ marker = 'import android.content.Intent;\n'
 if 'import android.view.MotionEvent;' not in s:
     if marker not in s:
         raise SystemExit('MicroActivity import marker not found')
-    # Replace the previous injected import block if present, otherwise insert it.
     old = '''import android.graphics.BitmapFactory;\nimport android.graphics.Color;\nimport android.graphics.drawable.ColorDrawable;\nimport android.view.Gravity;\nimport android.view.ViewTreeObserver;\nimport android.widget.FrameLayout;\nimport android.widget.ImageView;\n'''
     if old in s:
         s = s.replace(old, imports, 1)
@@ -47,11 +46,10 @@ method_marker = 'public void lockNightMode() {\n'
 method = '''private void setupSideArt() {
     View root = binding.getRoot();
 
-    // Pure black everywhere outside the portrait game.
     root.setBackgroundColor(Color.BLACK);
     binding.displayableContainer.setBackgroundColor(Color.BLACK);
     binding.overlayView.setBackgroundColor(Color.TRANSPARENT);
-    binding.overlayView.setAlpha(0.0f); // hide default keyboard graphics, not its input dispatch
+    binding.overlayView.setAlpha(0.0f);
     getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
     getWindow().getDecorView().setBackgroundColor(Color.BLACK);
 
@@ -60,15 +58,14 @@ method = '''private void setupSideArt() {
     }
 
     sideArtContainer = new FrameLayout(this) {
-        // The supplied PNGs are visual skins only. Never let this transparent
-        // layer consume a touch; the real J2ME Loader overlay underneath must
-        // receive it so VirtualKeyboard can generate MIDlet key events.
         @Override
         public boolean dispatchTouchEvent(MotionEvent event) {
             return false;
         }
     };
-    sideArtContainer.setBackgroundColor(Color.BLACK);
+    // IMPORTANT: this full-screen container must be transparent. A black
+    // background here would cover the actual Diamond Rush game surface.
+    sideArtContainer.setBackgroundColor(Color.TRANSPARENT);
     sideArtContainer.setClickable(false);
     sideArtContainer.setFocusable(false);
     sideArtContainer.setWillNotDraw(true);
@@ -116,8 +113,6 @@ private void positionSideArt() {
         return;
     }
 
-    // Diamond Rush is 240x320. Keep its portrait area centered and make every
-    // remaining horizontal pixel part of the black side-control areas.
     int gameWidth = Math.min(rootWidth, Math.round(rootHeight * 0.75f));
     int gameLeft = (rootWidth - gameWidth) / 2;
     int gameRight = gameLeft + gameWidth;
