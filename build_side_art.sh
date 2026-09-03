@@ -44,5 +44,14 @@ if old6 not in s:
     raise SystemExit('* mapping not found in base implementation')
 s = s.replace(old6, new6, 1)
 
+# Expand the LEFT touch area so presses near the visible button edge/corner
+# are still registered, making movement more fluid without changing the
+# visual artwork or the other controls.
+old_left = 'if (hit(px, ny, 0.35f, 0.655f, 0.13f, 0.13f)) return Canvas.KEY_LEFT;'
+new_left = 'if (hit(px, ny, 0.35f, 0.655f, 0.16f, 0.15f)) return Canvas.KEY_LEFT;'
+if old_left not in s:
+    raise SystemExit('left mapping not found in base implementation')
+s = s.replace(old_left, new_left, 1)
+
 p.write_text(s)
 PY
