@@ -1,0 +1,180 @@
+name: Build Diamond Rush APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Diamond Rush repository
+        uses: actions/checkout@v4
+
+      - name: Download J2ME Loader source
+        run: git clone --depth 1 https://github.com/nikita36078/J2ME-Loader.git j2me-loader
+
+      - name: Download the bundled Diamond Rush JAR
+        run: |
+          mkdir -p j2me-loader/app/src/main/assets
+          curl -fL --retry 3 \
+            'https://raw.githubusercontent.com/devilhandle/Diamond-Rush/main/diamondrus_lybcoaz8%20%281%29.jar' \
+            -o j2me-loader/app/src/main/assets/diamond_rush.jar
+          test -s j2me-loader/app/src/main/assets/diamond_rush.jar
+
+      - name: Set app name
+        working-directory: j2me-loader
+        run: sed -i "s/rootProject.name = .*/rootProject.name = 'Diamond Rush'/" settings.gradle
+
+      - name: Add bundled-game launcher
+        working-directory: j2me-loader
+        run: |
+          mkdir -p app/src/main/java/ru/playsoftware/j2meloader
+          cat > app/src/main/java/ru/playsoftware/j2meloader/BundledLauncher.java <<'JAVA'
+          package ru.playsoftware.j2meloader;
+
+          import android.app.Activity;
+          import android.widget.Toast;
+
+          import com.android.dx.command.dexer.Main;
+
+          import java.io.File;
+          import java.io.FileOutputStream;
+          import java.io.InputStream;
+          import java.util.jar.JarFile;
+          import java.util.jar.Manifest;
+
+          import ru.playsoftware.j2meloader.config.Config;
+          import ru.playsoftware.j2meloader.config.ProfileModel;
+          import ru.playsoftware.j2meloader.config.ProfilesManager;
+
+          public final class BundledLauncher {
+              private static final String ASSET = "diamond_rush.jar";
+              private static final String APP_DIR_NAME = "Diamond_Rush";
+
+              private BundledLauncher() {}
+
+              public static void launch(Activity activity) {
+                  try {
+                      File appDir = new File(Config.getAppDir(), APP_DIR_NAME);
+                      if (!appDir.exists() && !appDir.mkdirs()) {
+                          throw new Exception("Cannot create game directory");
+                      }
+
+                      File resJar = new File(appDir, Config.MIDLET_RES_FILE);
+                      File dex = new File(appDir, Config.MIDLET_DEX_FILE);
+                      File manifestFile = new File(appDir, Config.MIDLET_MANIFEST_FILE);
+                      File configDir = new File(Config.getConfigsDir(), APP_DIR_NAME);
+
+                      if (!dex.isFile() || !resJar.isFile() || !manifestFile.isFile()) {
+                          copyAsset(activity, ASSET, resJar);
+
+                          Manifest manifest;
+                          try (JarFile jar = new JarFile(resJar)) {
+                              manifest = jar.getManifest();
+                          }
+                          if (manifest == null) {
+                              throw new Exception("Diamond Rush JAR has no manifest");
+                          }
+
+                          try (FileOutputStream out = new FileOutputStream(manifestFile)) {
+                              manifest.write(out);
+                          }
+
+                          Main.main(new String[]{
+                                  "--no-optimize",
+                                  "--core-library",
+                                  "--output=" + dex.getAbsolutePath(),
+                                  resJar.getAbsolutePath()
+                          });
+
+                          if (!dex.isFile()) {
+                              throw new Exception("J2ME conversion did not create converted.dex");
+                          }
+
+                          if (!configDir.exists() && !configDir.mkdirs()) {
+                              throw new Exception("Cannot create profile directory");
+                          }
+                          ProfileModel profile = new ProfileModel(configDir);
+                          profile.screenWidth = 240;
+                          profile.screenHeight = 320;
+                          profile.orientation = 3;
+                          profile.screenScaleType = 1;
+                          profile.screenGravity = 2;
+                          profile.screenScaleToFit = true;
+                          profile.screenKeepAspectRatio = true;
+                          profile.forceFullscreen = true;
+                          profile.showKeyboard = true;
+                          profile.touchInput = true;
+                          if (!ProfilesManager.saveConfig(profile)) {
+                              throw new Exception("Cannot save game profile");
+                          }
+                      }
+
+                      String name = "Diamond Rush";
+                      try (JarFile jar = new JarFile(resJar)) {
+                          Manifest manifest = jar.getManifest();
+                          if (manifest != null) {
+                              String n = manifest.getMainAttributes().getValue("MIDlet-Name");
+                              if (n != null && !n.trim().isEmpty()) name = n.trim();
+                          }
+                      }
+
+                      Config.startApp(activity, name, appDir.getAbsolutePath(), false);
+                      activity.finish();
+                  } catch (Throwable e) {
+                      e.printStackTrace();
+                      Toast.makeText(activity, "Diamond Rush başlatılamadı: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                  }
+              }
+
+              private static void copyAsset(Activity activity, String assetName, File target) throws Exception {
+                  try (InputStream in = activity.getAssets().open(assetName);
+                       FileOutputStream out = new FileOutputStream(target)) {
+                      byte[] buffer = new byte[8192];
+                      int n;
+                      while ((n = in.read(buffer)) != -1) {
+                          out.write(buffer, 0, n);
+                      }
+                  }
+              }
+          }
+          JAVA
+
+      - name: Launch the embedded game instead of the emulator library
+        working-directory: j2me-loader
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/ru/playsoftware/j2meloader/MainActivity.java')
+          s = p.read_text()
+          needle = '\t\tsuper.onCreate(savedInstanceState);\n'
+          replacement = needle + '\t\tif (savedInstanceState == null) {\n\t\t\tBundledLauncher.launch(this);\n\t\t\treturn;\n\t\t}\n'
+          if replacement not in s:
+              if needle not in s:
+                  raise SystemExit('MainActivity onCreate marker not found')
+              s = s.replace(needle, replacement, 1)
+              p.write_text(s)
+          PY
+
+      - name: Build APK
+        working-directory: j2me-loader
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleOpenDebug
+
+      - name: Find APK
+        working-directory: j2me-loader
+        run: |
+          find app/build/outputs/apk -type f -name '*.apk' -print
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: Diamond-Rush-APK
+          path: j2me-loader/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          archive: false
