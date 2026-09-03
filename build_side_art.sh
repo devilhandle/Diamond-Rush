@@ -58,12 +58,86 @@ method = '''private void setupSideArt() {
     }
 
     sideArtContainer = new FrameLayout(this) {
+        private final int[] pressedKeys = new int[20];
+
+        private boolean near(float x, float y, float cx, float cy, float rx, float ry) {
+            float dx = (x - cx) / rx;
+            float dy = (y - cy) / ry;
+            return dx * dx + dy * dy <= 1.0f;
+        }
+
+        private int keyForSideTouch(float x, float y) {
+            int w = getWidth();
+            int h = getHeight();
+            if (w <= 0 || h <= 0) return 0;
+            int gameWidth = Math.min(w, Math.round(h * 0.75f));
+            int gameLeft = (w - gameWidth) / 2;
+            int gameRight = gameLeft + gameWidth;
+            float ny = y / (float) h;
+
+            if (x < gameLeft) {
+                float px = x / (float) Math.max(1, gameLeft);
+                if (near(px, ny, 0.34f, 0.41f, 0.085f, 0.105f)) return Canvas.KEY_SOFT_LEFT;
+                if (near(px, ny, 0.48f, 0.51f, 0.085f, 0.105f)) return Canvas.KEY_SOFT_RIGHT;
+                if (near(px, ny, 0.35f, 0.655f, 0.105f, 0.12f)) return Canvas.KEY_LEFT;
+                if (near(px, ny, 0.61f, 0.655f, 0.105f, 0.12f)) return Canvas.KEY_RIGHT;
+                if (near(px, ny, 0.48f, 0.81f, 0.105f, 0.12f)) return Canvas.KEY_DOWN;
+                if (near(px, ny, 0.48f, 0.515f, 0.105f, 0.12f)) return Canvas.KEY_UP;
+            } else if (x > gameRight) {
+                float px = (x - gameRight) / (float) Math.max(1, w - gameRight);
+                if (near(px, ny, 0.41f, 0.63f, 0.13f, 0.14f)) return Canvas.KEY_NUM5;
+                if (near(px, ny, 0.46f, 0.80f, 0.13f, 0.14f)) return Canvas.KEY_STAR;
+            }
+            return 0;
+        }
+
+        private void sendPress(int id, int key) {
+            if (id < 0 || id >= pressedKeys.length || key == 0) return;
+            Displayable d = MicroActivity.this.getCurrent();
+            if (d instanceof Canvas) {
+                pressedKeys[id] = key;
+                ((Canvas) d).postKeyPressed(key);
+            }
+        }
+
+        private void sendRelease(int id) {
+            if (id < 0 || id >= pressedKeys.length) return;
+            int key = pressedKeys[id];
+            if (key != 0) {
+                Displayable d = MicroActivity.this.getCurrent();
+                if (d instanceof Canvas) ((Canvas) d).postKeyReleased(key);
+                pressedKeys[id] = 0;
+            }
+        }
+
         @Override
         public boolean dispatchTouchEvent(MotionEvent event) {
+            int action = event.getActionMasked();
+            int index = event.getActionIndex();
+            int id = event.getPointerId(index);
+
+            if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN) {
+                int key = keyForSideTouch(event.getX(index), event.getY(index));
+                if (key != 0) {
+                    sendPress(id, key);
+                    return true;
+                }
+                return false;
+            }
+
+            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_POINTER_UP) {
+                sendRelease(id);
+                return true;
+            }
+
+            if (action == MotionEvent.ACTION_CANCEL) {
+                for (int i = 0; i < pressedKeys.length; i++) sendRelease(i);
+                return true;
+            }
             return false;
         }
     };
-    // Transparent full-screen holder: it must never paint over the game.
+
     sideArtContainer.setBackgroundColor(Color.TRANSPARENT);
     sideArtContainer.setClickable(false);
     sideArtContainer.setFocusable(false);
@@ -99,9 +173,6 @@ method = '''private void setupSideArt() {
     root.getViewTreeObserver().addOnGlobalLayoutListener(sideArtLayoutListener);
     root.post(this::positionSideArt);
 
-    // The transparent J2ME Loader overlay stays ABOVE the artwork so its
-    // VirtualKeyboard continues to receive touch events. Its graphics remain
-    // invisible because alpha is 0, while touch handling is still active.
     binding.overlayView.bringToFront();
 }
 
