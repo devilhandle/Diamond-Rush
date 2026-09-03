@@ -45,8 +45,7 @@ method_marker = 'public void lockNightMode() {\n'
 method = '''private void setupSideArt() {
     View root = binding.getRoot();
 
-    // Keep the window black, but the overlay container itself must be transparent
-    // so it cannot cover the actual game view.
+    // Black is only the background around the portrait game.
     root.setBackgroundColor(Color.BLACK);
     binding.displayableContainer.setBackgroundColor(Color.BLACK);
     binding.overlayView.setBackgroundColor(Color.TRANSPARENT);
@@ -105,23 +104,12 @@ private void positionSideArt() {
         return;
     }
 
-    View game = binding.displayableContainer.getChildCount() > 0
-            ? binding.displayableContainer.getChildAt(0) : null;
-
-    int gameLeft = 0;
-    int gameRight = rootWidth;
-    if (game != null && game.getWidth() > 0 && game.getHeight() > 0) {
-        int[] rootPos = new int[2];
-        int[] gamePos = new int[2];
-        root.getLocationOnScreen(rootPos);
-        game.getLocationOnScreen(gamePos);
-        gameLeft = Math.max(0, Math.min(rootWidth, gamePos[0] - rootPos[0]));
-        gameRight = Math.max(gameLeft, Math.min(rootWidth, gameLeft + game.getWidth()));
-    } else {
-        int gameWidth = Math.min(rootHeight * 3 / 4, rootWidth);
-        gameLeft = (rootWidth - gameWidth) / 2;
-        gameRight = gameLeft + gameWidth;
-    }
+    // Diamond Rush is 240x320. In landscape, its displayed portrait area is
+    // exactly 3/4 of the available height. Do not use the child View bounds:
+    // J2ME Loader's displayable container itself can be full-width.
+    int gameWidth = Math.min(rootWidth, Math.round(rootHeight * 0.75f));
+    int gameLeft = (rootWidth - gameWidth) / 2;
+    int gameRight = gameLeft + gameWidth;
 
     FrameLayout.LayoutParams left = (FrameLayout.LayoutParams) leftSideArt.getLayoutParams();
     left.width = gameLeft;
